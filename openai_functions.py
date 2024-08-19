@@ -8,45 +8,49 @@ openai.api_key = openai_api_key
 
 def generate_menu(input_list):
     menu = {}
-    
+
     for item, category in input_list:
         if category in menu:
             menu[category].append(item)
         else:
             menu[category] = [item]
-    
+
     output = ""
     for category, items in menu.items():
         output += f"{category}: {', '.join(items)}.\n"
-    
+
     return output.strip()
 
 
 input_list = db_helper.get_products_for_initial_prompt()
 
 menu_output = generate_menu(input_list)
+
+# menu_output = db_helper.get_menu()
 beer_list = db_helper.get_beers({
-        'product_name': ""
-    })
+    'product_name': ""
+})
 
 # Content of the initial message prompt, describing the role and tasks of a pizzeria server in Italy, along with menu items and restrictions.
 messages = [
-    {"role": "system", 
-    "content": "Restaurant server. Take orders, assist with the following menu choices. Offer only items from menu, no inventions beyond this menu." 
-    + menu_output + 
-    """ \n Beer list:"""
-    + beer_list + 
-    """ . Respond with relevant and funny emojii always. Menu: Alcoholic beers incl. details: beer name, country, style, Alc %, IBU (higher -> bitter, lower -> sweater). Example: [('PUNK IPA', 'Scotland', 'India pale ale (ipa)', 5.6, 35)] -> [(name, country, style, Alc %, IBU)]. Offer only listed in the menu. items. GF means gluten free. If the name doesn't contain GF, the item contains gluten."""
-    }]
+    {"role": "system",
+     "content": "Restaurant server. Take orders, assist with the following menu choices. Offer only items from menu, no inventions beyond this menu."
+                + menu_output +
+                """ \n Beer list:"""
+                + beer_list +
+                """ Menu: Alcoholic beers incl. details: beer name, country, style, Alc %, IBU (higher -> bitter, lower -> sweater). Example: [('PUNK IPA', 'Scotland', 'India pale ale (ipa)', 5.6, 35)] -> [(name, country, style, Alc %, IBU)]. Offer only listed in the menu. items. GF means gluten free. If the name doesn't contain GF, the item contains gluten."""
+                + """also create a order list of all the items and show it after the customer adds or deletes the items in the order. show this order list separately as a table """
+     }]
 print(messages)
 
+
 def get_answer(question):
-    question = question+("\n Response 200 chars: generate short reply. No non-food Qs allowed.") #not always necessary
-    messages.append({'role': 'user', 'content': question})
+    question = str(question) + " Response 200 chars: generate short reply. No non-food Qs allowed." #not always necessary
+    messages.append({'role': 'user', 'content': str(question)})
     functions = [
         {
             "name": "get_product_from_menu",
-            "description": """Retrieve menu items which the customer can eat. Perfect funcion for procuct recommendation or if the customers has a specific request. Customer orders, known product name yields full info, known product type yields all of that type, no name or type specified, return all menu items. 
+            "description": """Retrieve menu items which the customer can eat. Perfect function for procuct recommendation or if the customer has a specific request. Customer orders, known product name yields full info, known product type yields all of that type, no name or type specified, return all menu items. 
             """,
             "parameters": {
                 "type": "object",
@@ -96,7 +100,7 @@ def get_answer(question):
             },
         },
 
-{
+        {
             "name": "check_availability",
             "description": """Check product availability (0: unavailable, 1: available).
             """,
@@ -132,7 +136,7 @@ def get_answer(question):
         model="gpt-3.5-turbo",
         messages=messages,
         functions=functions,
-        function_call="auto",  
+        function_call="auto",
     )
     response_message = response["choices"][0]["message"]
 
@@ -142,7 +146,7 @@ def get_answer(question):
             'get_product_from_menu': db_helper.get_menu,
             "get_price": db_helper.get_price,
             "get_ingredients_and_description": db_helper.get_ingredients_and_description,
-            #'place_order': db_helper.place_an_order, #not implemented yet
+            # 'place_order': db_helper.place_an_order, #not implemented yet
             'check_availability': db_helper.check_availability,
             'get_beers': db_helper.get_beers
         }
@@ -155,7 +159,6 @@ def get_answer(question):
         function_response = fuction_to_call(function_args)
         print(function_response)
 
-
         messages.append(response_message)
         messages.append(
             {
@@ -165,12 +168,11 @@ def get_answer(question):
             }
         )
 
-
         second_response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo-0613",
+            model="gpt-3.5-turbo-0125",
             messages=messages,
             temperature=0,
-            #max_tokens=256,
+            # max_tokens=256,
         )  # get a new response from GPT where it can see the function response
 
         messages.append({"role": "assistant", "content": second_response["choices"][0]["message"]["content"]})
@@ -184,7 +186,6 @@ def get_answer(question):
         return response_message["content"]
 
 
-
 if __name__ == '__main__':
     print(get_answer("How much is pizza margherita?"))
-    #print(type(beer_list))
+    # print(type(beer_list))

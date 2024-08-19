@@ -6,9 +6,9 @@ def get_db_cursor():
     # open database connection
     db = mysql.connector.connect(
         host="localhost",
-        user="-> insert here the username <-",
-        password="-> insert here the password <-",
-        database="restaurant_db"
+        user="root",
+        password="",
+        database="ordtest"
     )
 
     # create a new cursor instance
